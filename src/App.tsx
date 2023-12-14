@@ -25,14 +25,14 @@ import {
 const { Option } = Select;
 
 const App: React.FC = () => {
-  const [loanAmount, setLoanAmount] = useState<number | undefined>(undefined);
-  const [interestRate, setInterestRate] = useState<number>(1);
+  const [loanAmount, setLoanAmount] = useState<number | undefined>(0);
+  const [interestRate, setInterestRate] = useState<number>(8);
   const [loanDurationMonths, setLoanDurationMonths] = useState<number>(1);
   const [loanDurationYears, setLoanDurationYears] = useState<number>(1);
   const [processingFees, setProcessingFees] = useState<number | undefined>(
     undefined
   );
-  const [currency, setCurrency] = useState<string>("$");
+  const [currency, setCurrency] = useState<string>("EUR");
   const [accrualFrequency, setAccrualFrequency] = useState<string>("monthly");
   const [repaymentType, setRepaymentType] = useState<string>("fixed");
   const [startingMonth, setStartingMonth] = useState<string>("January");
@@ -65,10 +65,9 @@ const App: React.FC = () => {
   const generateRepaymentSchedule = () => {
     const scheduleData = [];
     let remainingAmount = loanAmount!;
-    // let originalAmount = loanAmount!;
+
     const startingMonthDate = new Date(2023, parseInt(startingMonth));
 
-    // Calculate monthly installment outside the loop
     const monthlyInstallment = calculateMonthlyInstallment();
 
     for (let i = 0; i < loanDurationMonths; i++) {
@@ -79,16 +78,21 @@ const App: React.FC = () => {
       const interestPayment = (remainingAmount * interestRate) / 100 / 12;
       const principalPayment = monthlyInstallment - interestPayment;
 
-      const payable = monthlyInstallment.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, "$&,");
+      const payable = monthlyInstallment
+        .toFixed(2)
+        .replace(/\d(?=(\d{3})+\.)/g, "$&,");
 
       const remaining =
         i === 0
           ? remainingAmount
-          : (remainingAmount - principalPayment).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, "$&,");
+          : (remainingAmount - principalPayment)
+              .toFixed(2)
+              .replace(/\d(?=(\d{3})+\.)/g, "$&,");
 
-      const startingAmount = remainingAmount;
-      
+      let startingAmount = remainingAmount;
+
       scheduleData.push({
+        nr: i + 1,
         month: currentDate.toLocaleDateString("en-US", {
           month: "long",
           year: "numeric",
@@ -96,7 +100,9 @@ const App: React.FC = () => {
         startingAmount,
         payable,
         interest: interestPayment.toFixed(2),
-        principal: principalPayment.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, "$&,"),
+        principal: principalPayment
+          .toFixed(2)
+          .replace(/\d(?=(\d{3})+\.)/g, "$&,"),
         remaining,
       });
 
@@ -107,6 +113,11 @@ const App: React.FC = () => {
   };
 
   const repaymentColumns = [
+    {
+      title: "Nr.",
+      dataIndex: "nr",
+      key: "nr",
+    },
     {
       title: "Month",
       dataIndex: "month",
@@ -140,11 +151,13 @@ const App: React.FC = () => {
     },
   ];
 
-  useEffect(() => {
-    //
-    // cases for monthly/yearly -- APR = interest in monthly -- Remaining = original - the principal xx
-    //original amount from last row Remaining xx
-  }, [loanAmount, interestRate, loanDurationMonths, processingFees, currency]);
+  useEffect(() => {}, [
+    loanAmount,
+    interestRate,
+    loanDurationMonths,
+    processingFees,
+    currency,
+  ]);
 
   return (
     <div>
@@ -156,7 +169,9 @@ const App: React.FC = () => {
           margin: "3rem 0",
         }}
       >
-        <img src={logo} width={120} alt="logo" />
+        <a href="#">
+          <img src={logo} width={320} alt="logo" />
+        </a>
       </div>
       <Layout
         style={{
@@ -166,7 +181,24 @@ const App: React.FC = () => {
         }}
         className="layout"
       >
-        <Typography.Title>Loan Calculator</Typography.Title>
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "0 1rem 0 0rem",
+          }}
+        >
+          <Typography.Title>Loan Calculator</Typography.Title>
+
+          <Form.Item colon={false} style={labelStyles} label="Language">
+            <Select defaultValue="ENG">
+              <Option value="ENG">ENG</Option>
+              <Option value="GER">GER</Option>
+            </Select>
+          </Form.Item>
+        </div>
         <Row style={rowMTStyles}>
           <Col span={14}>
             <Form style={formStyles}>
@@ -174,7 +206,7 @@ const App: React.FC = () => {
                 <Col span={10}>
                   <Form.Item colon={false} style={labelStyles} label="Currency">
                     <Select
-                      defaultValue="USD"
+                      defaultValue="EUR"
                       onChange={(value) => setCurrency(value as string)}
                     >
                       <Option value="USD">USD</Option>
@@ -243,9 +275,7 @@ const App: React.FC = () => {
                         `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                       }
                       parser={(value: any) => value!.replace(/\$\s?|(,*)/g, "")}
-                      onChange={(e) =>
-                        setLoanAmount(parseFloat(e))
-                      }
+                      onChange={(e) => setLoanAmount(parseFloat(e))}
                     />
                   </Form.Item>
                 </Col>
@@ -258,7 +288,7 @@ const App: React.FC = () => {
                     <InputNumber
                       style={{ width: "100%" }}
                       formatter={(value) =>
-                        `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                       }
                       parser={(value: any) => value!.replace(/\$\s?|(,*)/g, "")}
                       onChange={(e) =>
@@ -275,12 +305,24 @@ const App: React.FC = () => {
                     style={labelStyles}
                     label="Interest Rate (Max 24%)"
                   >
-                    <Slider
-                      min={1}
-                      max={24}
-                      step={0.5}
-                      onChange={(value) => setInterestRate(value as number)}
-                    />
+                    <div
+                      style={{ display: "flex", gap: "1rem", width: "100%" }}
+                    >
+                      <Slider
+                        min={1}
+                        max={24}
+                        step={0.5}
+                        value={interestRate}
+                        onChange={(value) => setInterestRate(value as number)}
+                        style={{ width: "90%" }}
+                      />
+                      <InputNumber
+                        min={1}
+                        max={240}
+                        style={{ margin: "0 16px" }}
+                        value={interestRate}
+                      />
+                    </div>
                   </Form.Item>
                 </Col>
                 <Col
@@ -291,12 +333,6 @@ const App: React.FC = () => {
                     alignItems: "flex-start",
                   }}
                 >
-                  <InputNumber
-                    min={1}
-                    max={240}
-                    style={{ margin: "0 16px" }}
-                    value={interestRate}
-                  />
                   <div style={{ display: "flex", gap: "1rem" }}>
                     <div style={{ marginTop: "8px", fontWeight: "400" }}>
                       APR: {calculateAPR()}%
@@ -309,10 +345,11 @@ const App: React.FC = () => {
               </Row>
               <Row style={rowStyles}>
                 <Col span={12}>
-                  <Form.Item label="Time (Months)" style={labelStyles}>
+                  <Form.Item label="Duration (Months)" style={labelStyles}>
                     <Slider
                       min={1}
                       max={120}
+                      defaultValue={loanDurationMonths}
                       onChange={(value) => {
                         setLoanDurationMonths(value as number);
                         setLoanDurationYears(value / 12);
@@ -322,29 +359,33 @@ const App: React.FC = () => {
                   </Form.Item>
                 </Col>
 
-                <Col span={8}>
+                <Col span={10}>
                   <div style={{ display: "flex", alignItems: "center" }}>
-                    <InputNumber
-                      min={1}
-                      max={120}
-                      style={{ margin: "0 16px" }}
-                      value={loanDurationMonths.toFixed(0)}
-                      onChange={(value: any) => {
-                        setLoanDurationMonths(value as number);
-                        setLoanDurationYears(value / 12);
-                      }}
-                    />
-                    <InputNumber
-                      min={0.1}
-                      max={10}
-                      step={0.1}
-                      style={{ margin: "0 16px" }}
-                      value={loanDurationYears.toFixed(1)}
-                      onChange={(value: any) => {
-                        setLoanDurationMonths(value * 12);
-                        setLoanDurationYears(value as number);
-                      }}
-                    />
+                    <Form.Item label="Months" style={labelStyles}>
+                      <InputNumber
+                        min={1}
+                        max={120}
+                        style={{ margin: "0 16px" }}
+                        value={loanDurationMonths.toFixed(0)}
+                        onChange={(value: any) => {
+                          setLoanDurationMonths(value as number);
+                          setLoanDurationYears(value / 12);
+                        }}
+                      />
+                    </Form.Item>
+                    <Form.Item label="Years" style={labelStyles}>
+                      <InputNumber
+                        min={0.1}
+                        max={10}
+                        step={0.1}
+                        style={{ margin: "0 16px" }}
+                        value={loanDurationYears.toFixed(1)}
+                        onChange={(value: any) => {
+                          setLoanDurationMonths(value * 12);
+                          setLoanDurationYears(value as number);
+                        }}
+                      />
+                    </Form.Item>
                   </div>
                 </Col>
               </Row>
@@ -364,8 +405,6 @@ const App: React.FC = () => {
                       <Radio value="dynamic">Dynamic</Radio>
                     </Radio.Group>
                   </Form.Item>
-
-                  
                 </Col>
                 <Col span={12}>
                   <Form.Item
@@ -419,7 +458,6 @@ const App: React.FC = () => {
               </Row>
             </Col>
           </Col>
-          
         </Row>
         <Row style={{ marginTop: "1rem" }}>
           <Col span={24}>
@@ -437,4 +475,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
